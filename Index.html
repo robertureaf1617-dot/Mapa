@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Brújula · Arica y Parinacota</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<style>
+:root{--ink:#14202b;--paper:#f6f7f5;--panel:rgba(255,255,255,.93);--line:#dfe4e1;--teal:#0f8b8d;--amber:#f2b134;--mut:#5d6b73;--r:22px}
+:root[data-t=dark]{--ink:#e9efee;--paper:#0e161c;--panel:rgba(20,30,38,.94);--line:#273540;--mut:#93a4ad}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;font-family:'Bricolage Grotesque',system-ui,sans-serif;color:var(--ink);background:var(--paper)}
+#map{position:fixed;inset:0}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+.panel{position:fixed;z-index:10;left:14px;top:14px;width:min(400px,calc(100vw - 28px));max-height:calc(100vh - 28px);display:flex;flex-direction:column;background:var(--panel);backdrop-filter:blur(14px);border-radius:var(--r);box-shadow:0 12px 40px rgba(10,25,35,.22);overflow:hidden}
+.bar{display:flex;align-items:center;gap:6px;padding:8px 10px}
+.bar input{flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:16px;padding:10px 6px;color:var(--ink)}
+.bar input::placeholder{color:var(--mut)}
+.ic{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:18px;flex:none}
+.ic:hover{background:var(--line)}
+.logo{font-weight:800;color:var(--teal);padding:0 4px 0 8px;letter-spacing:-.5px}
+.body{overflow:auto;border-top:1px solid var(--line)}
+.body:empty{display:none}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:10px 12px;border-top:1px solid var(--line)}
+.chip{white-space:nowrap;padding:7px 14px;border-radius:99px;border:1px solid var(--line);font-size:14px;background:var(--panel)}
+.chip:hover{border-color:var(--teal)}
+.row{display:flex;gap:12px;align-items:center;width:100%;text-align:left;padding:11px 16px}
+.row:hover{background:var(--line)}
+.row small{display:block;color:var(--mut);font-size:13px}
+.row b{font-weight:600}
+.pin{font-size:16px;width:32px;height:32px;border-radius:50%;background:var(--line);display:grid;place-items:center;flex:none}
+.card{padding:16px}
+.card h2{margin:0 0 4px;font-size:22px;letter-spacing:-.4px}
+.card p{margin:0 0 12px;color:var(--mut);font-size:14px}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.btn{padding:9px 16px;border-radius:99px;border:1px solid var(--line);font-weight:600;font-size:14px}
+.btn.pri{background:var(--teal);border-color:var(--teal);color:#fff}
+.sum{padding:12px 16px;display:flex;align-items:baseline;gap:10px}
+.sum strong{font-size:30px;letter-spacing:-1px;color:var(--teal)}
+.alts{display:flex;gap:8px;padding:0 12px 10px}
+.steps{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.steps li{display:flex;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);font-size:15px}
+.steps small{color:var(--mut);display:block}
+.fab{position:fixed;z-index:10;right:14px;bottom:28px;display:flex;flex-direction:column;gap:10px}
+.fab button{width:48px;height:48px;border-radius:16px;background:var(--panel);backdrop-filter:blur(14px);box-shadow:0 6px 20px rgba(10,25,35,.2);font-size:20px}
+.toast{position:fixed;z-index:20;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:11px 20px;border-radius:99px;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none;max-width:90vw;text-align:center}
+.toast.show{opacity:1}
+.me{width:18px;height:18px;border-radius:50%;background:#2f7cf6;border:3px solid #fff;box-shadow:0 0 0 8px rgba(47,124,246,.25)}
+.mk{width:22px;height:22px;border-radius:50%;background:var(--teal);border:4px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.4)}
+.mk.b{background:var(--amber)}
+.maplibregl-ctrl-bottom-left{margin-bottom:14px}
+@media(max-width:640px){.panel{left:8px;top:8px;width:calc(100vw - 16px);max-height:55vh}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<section class="panel" aria-label="Buscador">
+  <div class="bar" id="bar1">
+    <span class="logo">Brújula</span>
+    <input id="q" type="search" placeholder="Busca en Arica y Parinacota" autocomplete="off" aria-label="Buscar">
+    <button class="ic" id="go" title="Cómo llegar" aria-label="Cómo llegar">⇄</button>
+  </div>
+  <div class="bar" id="bar2" hidden>
+    <button class="ic" id="back" title="Volver" aria-label="Volver">←</button>
+    <input id="from" placeholder="Origen (vacío = mi ubicación)" autocomplete="off" aria-label="Origen">
+  </div>
+  <div class="bar" id="bar3" hidden>
+    <span class="ic">📍</span>
+    <input id="to" placeholder="Destino" autocomplete="off" aria-label="Destino">
+    <button class="ic" id="swap" title="Invertir" aria-label="Invertir">⇅</button>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="body" id="body"></div>
+</section>
+
+<div class="fab">
+  <button id="theme" title="Modo claro/oscuro" aria-label="Tema">◐</button>
+  <button id="saved" title="Guardados" aria-label="Guardados">★</button>
+  <button id="loc" title="Mi ubicación" aria-label="Mi ubicación">◎</button>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),3000)}
+
+// ── Región: Arica y Parinacota (Chile) ──
+const W=-70.6,E=-68.4,S=-19.3,N=-17.4;
+const ARICA=[-70.3126,-18.4783];
+const inside=(la,lo)=>la>=S&&la<=N&&lo>=W&&lo<=E;
+const OUT='Fuera de Arica y Parinacota. Este mapa solo cubre esa región.';
+
+// ── Mapa vectorial (OpenFreeMap, gratis y sin clave) ──
+const root=document.documentElement;
+const STY={light:'https://tiles.openfreemap.org/styles/liberty',dark:'https://tiles.openfreemap.org/styles/dark'};
+let dark=matchMedia('(prefers-color-scheme: dark)').matches;
+if(dark)root.dataset.t='dark';
+const map=new maplibregl.Map({container:'map',style:STY[dark?'dark':'light'],center:ARICA,zoom:12,minZoom:8,maxBounds:[[W,S],[E,N]],attributionControl:{compact:true},fadeDuration:0});
+map.addControl(new maplibregl.NavigationControl({showCompass:false}),'bottom-left');
+$('#theme').onclick=()=>{dark=!dark;root.dataset.t=dark?'dark':'';map.setStyle(STY[dark?'dark':'light'])};
+
+// ── Capas de ruta (se vuelven a crear al cambiar de tema) ──
+const EMPTY={type:'FeatureCollection',features:[]};
+let routeFC=EMPTY,altFC=EMPTY;
+function addRouteLayers(){
+ if(map.getSource('route'))return;
+ map.addSource('alt',{type:'geojson',data:altFC});
+ map.addSource('route',{type:'geojson',data:routeFC});
+ const lay={'line-cap':'round','line-join':'round'};
+ map.addLayer({id:'alt',type:'line',source:'alt',layout:lay,paint:{'line-color':'#8aa0a8','line-width':6,'line-opacity':.85}});
+ map.addLayer({id:'route-case',type:'line',source:'route',layout:lay,paint:{'line-color':'#ffffff','line-width':11}});
+ map.addLayer({id:'route',type:'line',source:'route',layout:lay,paint:{'line-color':'#0f8b8d','line-width':7}});
+}
+map.on('style.load',addRouteLayers);
+const feat=g=>({type:'FeatureCollection',features:[{type:'Feature',geometry:g,properties:{}}]});
+
+// ── Marcadores ──
+let markers=[];
+function clearMk(){markers.forEach(m=>m.remove());markers=[]}
+function mk(la,lo,c=''){const e=document.createElement('div');e.className='mk '+c;const m=new maplibregl.Marker({element:e}).setLngLat([lo,la]).addTo(map);markers.push(m);return e}
+
+// ── Búsqueda (solo Chile, solo la región, con caché) ──
+const cache=new Map();let ctl;
+async function search(q,bbox,limit=5){
+ const vb=bbox||`${W},${N},${E},${S}`;
+ const k=q.toLowerCase()+'|'+vb;if(cache.has(k))return cache.get(k);
+ ctl&&ctl.abort();ctl=new AbortController();
+ const u=`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=${limit}&countrycodes=cl&accept-language=es&bounded=1&viewbox=${vb}&q=${encodeURIComponent(q)}`;
+ const r=await (await fetch(u,{signal:ctl.signal})).json();cache.set(k,r);return r}
+const rev=async(la,lo)=>(await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&accept-language=es&lat=${la}&lon=${lo}`)).json();
+const deb=(f,ms=500)=>{let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>f(...a),ms)}};
+const short=r=>{const p=(r.display_name||'Ubicación marcada').split(', ');return{t:r.name||p[0],s:p.slice(1,4).join(', ')}};
+const isAbort=e=>e&&e.name==='AbortError';
+
+// ── Categorías ──
+const cats=[['🍽️','Restaurantes','restaurant'],['☕','Cafeterías','cafe'],['⛽','Gasolineras','fuel'],['🏨','Hoteles','hotel'],['💊','Farmacias','pharmacy'],['🏧','Cajeros','atm'],['🅿️','Parking','parking'],['🛒','Súper','supermarket']];
+$('#chips').innerHTML=cats.map(c=>`<button class="chip" data-q="${c[2]}" data-l="${c[1]}">${c[0]} ${c[1]}</button>`).join('');
+$('#chips').onclick=async e=>{const b=e.target.closest('.chip');if(!b)return;$('#q').value=b.dataset.l;
+ const g=map.getBounds(),bb=[Math.max(W,g.getWest()),Math.min(N,g.getNorth()),Math.min(E,g.getEast()),Math.max(S,g.getSouth())].map(n=>n.toFixed(3)).join(',');
+ try{showList(await search(b.dataset.q,bb,12),'Sin resultados en esta zona. Acerca o mueve el mapa.')}catch(x){if(!isAbort(x))toast('No se pudo buscar. Revisa tu conexión.')}};
+
+// ── Resultados ──
+function rowsHtml(r,ic='📍'){return r.map((x,i)=>{const s=short(x);return`<button class="row" data-i="${i}"><span class="pin">${ic}</span><span><b>${esc(s.t)}</b><small>${esc(s.s)}</small></span></button>`}).join('')}
+function showList(r,empty){
+ clearMk();
+ if(!r.length){$('#body').innerHTML=`<div class="card"><p>${empty||'Sin resultados en Arica y Parinacota. Prueba con otra dirección.'}</p></div>`;return}
+ $('#body').innerHTML=rowsHtml(r);
+ const b=new maplibregl.LngLatBounds();
+ r.forEach(x=>{mk(+x.lat,+x.lon).addEventListener('click',ev=>{ev.stopPropagation();pick(x)});b.extend([+x.lon,+x.lat])});
+ r.length>1?map.fitBounds(b,{padding:70,maxZoom:16,duration:600}):map.flyTo({center:b.getCenter(),zoom:16});
+ $('#body').onclick=e=>{const w=e.target.closest('.row');if(w)pick(r[w.dataset.i])};
+}
+let sel=null;
+function pick(x){
+ sel={lat:+x.lat,lon:+x.lon,...short(x)};
+ clearMk();mk(sel.lat,sel.lon);
+ map.flyTo({center:[sel.lon,sel.lat],zoom:Math.max(map.getZoom(),15),duration:700});
+ const fav=getFav().some(f=>f.lat===sel.lat&&f.lon===sel.lon);
+ $('#body').innerHTML=`<div class="card"><h2>${esc(sel.t)}</h2><p>${esc(sel.s)}</p>
+ <div class="acts"><button class="btn pri" id="dir">Cómo llegar</button><button class="btn" id="fav">${fav?'★ Guardado':'☆ Guardar'}</button><button class="btn" id="share">Compartir</button></div></div>`;
+ $('#dir').onclick=()=>startRoute(null,sel);
+ $('#fav').onclick=()=>{toggleFav(sel);pick(x)};
+ $('#share').onclick=()=>share(sel);
+}
+function share(p){const u=`${location.origin}${location.pathname}#${p.lat.toFixed(5)},${p.lon.toFixed(5)}`;
+ (navigator.share?navigator.share({title:p.t,url:u}):navigator.clipboard.writeText(u).then(()=>toast('Enlace copiado'))).catch(()=>{})}
+
+const suggest=deb(async inp=>{const q=inp.value.trim();if(q.length<3){$('#body').innerHTML='';return}
+ try{showList(await search(q))}catch(x){if(!isAbort(x))toast('No se pudo buscar. Revisa tu conexión.')}});
+$('#q').addEventListener('input',e=>suggest(e.target));
+
+// clic en el mapa = marcar punto
+map.on('click',async e=>{if(routing)return;const{lat,lng}=e.lngLat;
+ clearMk();mk(lat,lng,'b');
+ try{const r=await rev(lat,lng);pick({...r,lat,lon:lng,display_name:r.display_name||'Ubicación marcada'})}
+ catch{toast('No se pudo obtener la dirección')}});
+
+// ── Mi ubicación ──
+let me=null,meM=null;
+function locate(cb){if(!navigator.geolocation)return toast('Tu navegador no permite geolocalización');
+ navigator.geolocation.getCurrentPosition(p=>{const la=p.coords.latitude,lo=p.coords.longitude;
+  if(!inside(la,lo)){toast(OUT);map.flyTo({center:ARICA,zoom:12});return}
+  me={lat:la,lon:lo,t:'Mi ubicación',s:''};
+  if(meM)meM.remove();const e=document.createElement('div');e.className='me';meM=new maplibregl.Marker({element:e}).setLngLat([lo,la]).addTo(map);
+  cb?cb(me):map.flyTo({center:[lo,la],zoom:15})},()=>toast('Activa el permiso de ubicación'),{enableHighAccuracy:true,timeout:10000})}
+$('#loc').onclick=()=>locate();
+
+// ── Guardados ──
+const getFav=()=>{try{return JSON.parse(localStorage.getItem('fav')||'[]')}catch{return[]}};
+function toggleFav(p){const f=getFav(),i=f.findIndex(x=>x.lat===p.lat&&x.lon===p.lon);i>=0?f.splice(i,1):f.push({lat:p.lat,lon:p.lon,t:p.t,s:p.s});try{localStorage.setItem('fav',JSON.stringify(f))}catch{}}
+$('#saved').onclick=()=>{const f=getFav();clearMk();
+ if(!f.length){$('#body').innerHTML='<div class="card"><p>Aún no tienes lugares guardados. Busca un sitio y pulsa Guardar.</p></div>';return}
+ $('#body').innerHTML=f.map((x,i)=>`<button class="row" data-i="${i}"><span class="pin">★</span><span><b>${esc(x.t)}</b><small>${esc(x.s)}</small></span></button>`).join('');
+ f.forEach(x=>mk(x.lat,x.lon,'b'));
+ $('#body').onclick=e=>{const b=e.target.closest('.row');if(b){const x=f[b.dataset.i];pick({lat:x.lat,lon:x.lon,name:x.t,display_name:x.t+', '+x.s})}}};
+
+// ── Ruta en auto (OSRM) ──
+let routing=false,A=null,B=null,alts=[],ai=0;
+function ui(on){routing=on;$('#bar1').hidden=on;$('#bar2').hidden=!on;$('#bar3').hidden=!on;$('#chips').hidden=on;
+ if(!on){routeFC=EMPTY;altFC=EMPTY;map.getSource('route')?.setData(EMPTY);map.getSource('alt')?.setData(EMPTY);clearMk();$('#body').innerHTML=''}}
+$('#go').onclick=()=>startRoute(null,sel);
+$('#back').onclick=()=>ui(false);
+$('#swap').onclick=()=>{[A,B]=[B,A];fill();calc()};
+function fill(){$('#from').value=A?A.t:'';$('#to').value=B?B.t:''}
+function startRoute(a,b){ui(true);clearMk();B=b;
+ if(a){A=a;fill();calc()}else if(me){A=me;fill();calc()}else{fill();$('#body').innerHTML='<div class="card"><p>Buscando tu ubicación…</p></div>';locate(p=>{A=p;fill();calc()})}}
+for(const id of['from','to']){const el=$('#'+id);el.addEventListener('input',deb(async()=>{const q=el.value.trim();if(q.length<3)return;
+ try{const r=await search(q);$('#body').innerHTML=rowsHtml(r);
+  $('#body').onclick=e=>{const b=e.target.closest('.row');if(!b)return;const x=r[b.dataset.i],p={lat:+x.lat,lon:+x.lon,...short(x)};id==='from'?A=p:B=p;fill();calc()}}
+ catch(x){if(!isAbort(x))toast('No se pudo buscar')}}))}
+const fmtD=m=>m>=1000?(m/1000).toFixed(1)+' km':Math.round(m)+' m';
+const fmtT=s=>{const m=Math.round(s/60);return m>=60?Math.floor(m/60)+' h '+(m%60)+' min':Math.max(1,m)+' min'};
+async function calc(){if(!A||!B)return;
+ if(!inside(A.lat,A.lon)||!inside(B.lat,B.lon)){$('#body').innerHTML=`<div class="card"><p>${OUT}</p></div>`;return}
+ $('#body').innerHTML='<div class="card"><p>Calculando ruta…</p></div>';
+ try{const d=await (await fetch(`https://router.project-osrm.org/route/v1/driving/${A.lon},${A.lat};${B.lon},${B.lat}?overview=full&geometries=geojson&steps=true&alternatives=true`)).json();
+  if(d.code!=='Ok')throw 0;alts=d.routes;ai=0;draw()}
+ catch{$('#body').innerHTML='<div class="card"><p>No se encontró una ruta en auto entre estos puntos.</p></div>'}}
+const verb={turn:'Gira','new name':'Continúa','end of road':'Gira',fork:'Toma',merge:'Incorpórate','on ramp':'Toma la entrada','off ramp':'Toma la salida',ramp:'Toma la salida',continue:'Continúa',roundabout:'En la rotonda,',rotary:'En la rotonda,'};
+const mod={left:'a la izquierda','slight left':'ligeramente a la izquierda','sharp left':'bruscamente a la izquierda',right:'a la derecha','slight right':'ligeramente a la derecha','sharp right':'bruscamente a la derecha',straight:'recto',uturn:'y da la vuelta'};
+function stepText(s){const m=s.maneuver;
+ if(m.type==='arrive')return'Has llegado a tu destino';
+ if(m.type==='depart')return'Sal'+(s.name?' por '+s.name:'');
+ return`${verb[m.type]||'Continúa'} ${mod[m.modifier]||''}${s.name?' por '+s.name:''}`.replace(/\s+/g,' ').trim()}
+function draw(){
+ const r=alts[ai];
+ routeFC=feat(r.geometry);
+ altFC={type:'FeatureCollection',features:alts.filter((_,i)=>i!==ai).map(a=>({type:'Feature',geometry:a.geometry,properties:{}}))};
+ map.getSource('route').setData(routeFC);map.getSource('alt').setData(altFC);
+ clearMk();mk(A.lat,A.lon,'b');mk(B.lat,B.lon);
+ const b=new maplibregl.LngLatBounds();r.geometry.coordinates.forEach(c=>b.extend(c));map.fitBounds(b,{padding:{top:200,bottom:80,left:50,right:50},duration:600});
+ const steps=r.legs.flatMap(l=>l.steps);
+ $('#body').innerHTML=`<div class="sum"><strong>${fmtT(r.duration)}</strong><span>${fmtD(r.distance)} en auto</span></div>`+
+  (alts.length>1?`<div class="alts">${alts.map((a,i)=>`<button class="chip" data-a="${i}" style="${i===ai?'background:var(--ink);color:var(--paper)':''}">Ruta ${i+1} · ${fmtT(a.duration)}</button>`).join('')}</div>`:'')+
+  `<ol class="steps">${steps.map(s=>`<li><span class="pin">${s.maneuver.type==='arrive'?'🏁':'↱'}</span><span>${esc(stepText(s))}<small>${fmtD(s.distance)}</small></span></li>`).join('')}</ol>`;
+ document.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{ai=+b.dataset.a;draw()})}
+
+// ── Enlace compartido #lat,lon ──
+const h=location.hash.slice(1).split(',').map(Number);
+if(h.length===2&&h.every(isFinite)&&inside(h[0],h[1])){map.jumpTo({center:[h[1],h[0]],zoom:16});rev(h[0],h[1]).then(r=>pick({...r,lat:h[0],lon:h[1]})).catch(()=>{})}
+else locate();
+</script>
+</body>
+</html>
